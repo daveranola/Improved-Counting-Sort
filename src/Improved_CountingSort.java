@@ -22,7 +22,12 @@ public class Improved_CountingSort {
     }
 
     private static int getMax(int[]arr, int n) {
-        return 0;
+        int max = arr[0];
+        for (int i = 1; i < n; i++) {
+            max = Math.max(max, arr[i]);
+        }
+
+        return max;
     }
 
     private static void countingsort(int arr[], int n) {
