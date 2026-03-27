@@ -1,37 +1,59 @@
 import java.util.Arrays;
 
 public class Improved_CountingSort {
-    private static final int C = 1000;
+    private static final int C = 10;
+
+    private static void sort(int[] arr) {
+        quicksort_modified(arr, 0, arr.length-1, getMax(arr, arr.length), getMin(arr, arr.length));
+        countingsort(arr, arr.length);
+    }
 
     private static void quicksort_modified(int[] arr, int low, int high,
                             int maxValue, int minValue) {
-        while ((low < high) && (maxValue - minValue + high - low > C)) {
-            int pivot = partition(arr, low, high);
-            int midValue = arr[pivot];
-            quicksort_modified(arr, low,
-                    pivot - 1, midValue,
-                    minValue);
-            quicksort_modified(arr, pivot + 1,
-                    high, maxValue,
-                    midValue);
-        }
+        if (low >= high) return;
+
+        int size = high - low + 1;
+
+        if (maxValue - minValue + size <= C) return;
+
+        int pivot = partition(arr, low, high);
+        int mid = arr[pivot];
+
+        quicksort_modified(arr, low, pivot-1, mid, minValue);
+        quicksort_modified(arr, pivot+1, high, maxValue, mid);
+
     }
 
     private static int partition(int[] arr, int low, int high) {
-        int[] arr1 = Arrays.copyOf(arr,arr.length);
+        int mid = (low + high) / 2;
+
+        // median of three
+        if (arr[low] > arr[mid]) {
+            swap(arr, low, mid);
+        }
+
+        if (arr[low] > arr[high]) {
+            swap(arr, low, high);
+        }
+
+        if (arr[mid] > arr[high]) {
+            swap(arr, mid, high);
+        }
+
+        swap(arr, mid, high);
         int pivot = arr[high];
+        int i = low;
 
-        int i = low - 1;
-
-        for (int j = low; j <= high - 1; j++) {
-            if (arr1[j] < pivot) {
+        for (int j = low; j < high; j++) {
+            if (arr[j] < pivot) {
+                swap(arr, i, j);
                 i++;
-                swap(arr1, i, j);
             }
         }
 
-        swap(arr1, i + 1, high);
-        return i + 1;
+        swap(arr, i, high);
+        return i;
+
     }
 
     static void swap(int[] arr, int i, int j) {
@@ -42,7 +64,7 @@ public class Improved_CountingSort {
 
 
 
-    private static int getMax(int[]arr, int n) {
+    private static int getMax(int[] arr, int n) {
         int max = arr[0];
         for (int i = 1; i < n; i++) {
             max = Math.max(max, arr[i]);
@@ -51,29 +73,47 @@ public class Improved_CountingSort {
         return max;
     }
 
+    private static int getMin(int[] arr, int n) {
+        int min = arr[0];
+        for (int i = 1; i < n; i++) {
+            min = Math.min(min, arr[i]);
+        }
+
+        return min;
+    }
+
     private static void countingsort(int arr[], int n) {
-        int[] output = new int[n+1];
-        // getmax() returns the greatest value from $arr$
+        int[] output = new int[n];
         int r = getMax(arr, n);
         int[] count = new int[r+1];
-        for (int i = 0; i <= r; i++)
+
+        for (int i = 0; i <= r; i++) {
             count[i] = 0;
-        for (int i = 0; i < n; i++)
+        }
+
+        for (int i = 0; i < n; i++) {
             count[arr[i]]++;
-        for (int i = 1; i <= r; i++)
+        }
+
+        for (int i = 1; i <= r; i++) {
             count[i] += count[i - 1];
+        }
+
         for (int i = n - 1; i >= 0; i--) {
-            output[count[arr[i]]] = arr[i];
+            output[count[arr[i]] - 1] = arr[i];
             count[arr[i]] -= 1;
         }
-        for (int i = 0; i < n; i++)
+
+        for (int i = 0; i < n; i++) {
             arr[i] = output[i];
+        }
+
     }
 
     public static void main(String[] args) {
-        int[] arr = new int[]{1, 10000000, 3, 2, 4};
-        quicksort_modified(arr, 0, 4, getMax(arr, arr.length), 1);
-
+        int[] arr = {8, 3, 6, 1, 7, 2, 5, 4};
+//        sort(arr);
+        quicksort_modified(arr, 0, arr.length-1, getMax(arr, arr.length), getMin(arr, arr.length));
         for (int i : arr) {
             System.out.println(i);
         }
