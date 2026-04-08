@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/Brief/Brief.iml" filepath="$PROJECT_DIR$/Brief/Brief.iml" />
       <module fileurl="file://$PROJECT_DIR$/CountingSort_Improved.iml" filepath="$PROJECT_DIR$/CountingSort_Improved.iml" />
     </modules>
   </component>
