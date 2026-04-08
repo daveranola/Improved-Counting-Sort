@@ -1,9 +1,7 @@
-import java.util.Arrays;
-
 public class Improved_CountingSort {
     private static final int C = 10;
 
-    private static void sort(int[] arr) {
+    static void sort(int[] arr) {
         quicksort_modified(arr, 0, arr.length-1, getMax(arr, arr.length), getMin(arr, arr.length));
         countingsort(arr, arr.length);
     }
@@ -82,7 +80,7 @@ public class Improved_CountingSort {
         return min;
     }
 
-    private static void countingsort(int arr[], int n) {
+    private static void countingsort(int[] arr, int n) {
         int[] output = new int[n];
         int r = getMax(arr, n);
         int[] count = new int[r+1];
@@ -104,9 +102,7 @@ public class Improved_CountingSort {
             count[arr[i]] -= 1;
         }
 
-        for (int i = 0; i < n; i++) {
-            arr[i] = output[i];
-        }
+        System.arraycopy(output, 0, arr, 0, n);
 
     }
 
