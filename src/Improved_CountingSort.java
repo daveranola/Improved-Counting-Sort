@@ -1,8 +1,12 @@
 public class Improved_CountingSort {
-    private static final int C = 10;
+    private static final int C = 1000;
 
-    static void sort(int[] arr) {
-        quicksort_modified(arr, 0, arr.length-1, getMax(arr, arr.length), getMin(arr, arr.length));
+    public static void sort(int[] arr) {
+        if (arr.length < 2) {
+            return;
+        }
+
+        quicksort_modified(arr, 0, arr.length - 1, getMax(arr), getMin(arr));
         countingsort(arr, arr.length);
     }
 
@@ -12,17 +16,17 @@ public class Improved_CountingSort {
 
         int size = high - low + 1;
 
-        if (maxValue - minValue + size <= C) return;
+        if (maxValue - minValue + size - 1 <= C) return;
 
-        int pivot = partition(arr, low, high);
+        int pivot = partitionMedianOfThree(arr, low, high);
         int mid = arr[pivot];
 
-        quicksort_modified(arr, low, pivot-1, mid, minValue);
-        quicksort_modified(arr, pivot+1, high, maxValue, mid);
+        quicksort_modified(arr, low, pivot - 1, mid, minValue);
+        quicksort_modified(arr, pivot + 1, high, maxValue, mid);
 
     }
 
-    private static int partition(int[] arr, int low, int high) {
+    public static int partitionMedianOfThree(int[] arr, int low, int high) {
         int mid = (low + high) / 2;
 
         // median of three
@@ -54,26 +58,24 @@ public class Improved_CountingSort {
 
     }
 
-    static void swap(int[] arr, int i, int j) {
+    public static void swap(int[] arr, int i, int j) {
         int temp = arr[i];
         arr[i] = arr[j];
         arr[j] = temp;
     }
 
-
-
-    private static int getMax(int[] arr, int n) {
+    public static int getMax(int[] arr) {
         int max = arr[0];
-        for (int i = 1; i < n; i++) {
+        for (int i = 1; i < arr.length; i++) {
             max = Math.max(max, arr[i]);
         }
 
         return max;
     }
 
-    private static int getMin(int[] arr, int n) {
+    public static int getMin(int[] arr) {
         int min = arr[0];
-        for (int i = 1; i < n; i++) {
+        for (int i = 1; i < arr.length; i++) {
             min = Math.min(min, arr[i]);
         }
 
@@ -82,8 +84,8 @@ public class Improved_CountingSort {
 
     private static void countingsort(int[] arr, int n) {
         int[] output = new int[n];
-        int r = getMax(arr, n);
-        int[] count = new int[r+1];
+        int r = getMax(arr);
+        int[] count = new int[r + 1];
 
         for (int i = 0; i <= r; i++) {
             count[i] = 0;
@@ -103,15 +105,5 @@ public class Improved_CountingSort {
         }
 
         System.arraycopy(output, 0, arr, 0, n);
-
-    }
-
-    public static void main(String[] args) {
-        int[] arr = {8, 3, 6, 1, 7, 2, 5, 4};
-//        sort(arr);
-        quicksort_modified(arr, 0, arr.length-1, getMax(arr, arr.length), getMin(arr, arr.length));
-        for (int i : arr) {
-            System.out.println(i);
-        }
     }
 }
