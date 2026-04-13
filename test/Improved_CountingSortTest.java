@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DisplayName("Improved Counting Sort")
 class Improved_CountingSortTest {
     private static final long BASE_SEED = 20260408L;
-    private static final int PAPER_THRESHOLD_C = 1000;
     // The paper reports this baseline but does not publish an insertion cutoff.
     private static final int INSERTION_SORT_CUTOFF = 32;
     private static final int BENCHMARK_WARMUP_RUNS = 2;
@@ -54,6 +53,13 @@ class Improved_CountingSortTest {
         @MethodSource("Improved_CountingSortTest#table2StyleInputs")
         void table2Cases(String caseName, int[] input) {
             assertMatchesJavaSort(caseName, input);
+        }
+
+        @DisplayName("Table 2 staged pipeline")
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("Improved_CountingSortTest#table2StyleInputs")
+        void table2StagedPipeline(String caseName, int[] input) {
+            assertStagedPipelineMatchesJavaSort(caseName, input);
         }
 
         @DisplayName("Table 3 cases")
@@ -117,7 +123,7 @@ class Improved_CountingSortTest {
                     "n",
                     "r",
                     "preprocess",
-                    "counting",
+                    "partitioned count",
                     "T1 total",
                     "classic (T2)"
             );
@@ -281,6 +287,22 @@ class Improved_CountingSortTest {
         );
     }
 
+    private static void assertStagedPipelineMatchesJavaSort(String caseName, int[] input) {
+        int[] expected = input.clone();
+        int[] actual = input.clone();
+
+        Arrays.sort(expected);
+
+        Improved_CountingSort.PartitionPlan partitionPlan = Improved_CountingSort.preprocess(actual);
+        Improved_CountingSort.countingSortPartitions(actual, partitionPlan);
+
+        assertAll(
+                caseName,
+                () -> assertArrayEquals(expected, actual),
+                () -> assertSorted(actual)
+        );
+    }
+
     private static void assertSorted(int[] values) {
         for (int i = 1; i < values.length; i++) {
             assertTrue(values[i - 1] <= values[i], "Array is not sorted at index " + i);
@@ -341,8 +363,8 @@ class Improved_CountingSortTest {
     private static PhaseTimings averagePreprocessAndCountingMillis(int[] source, int warmupRuns, int measuredRuns) {
         for (int i = 0; i < warmupRuns; i++) {
             int[] copy = source.clone();
-            paperPreprocessOnly(copy);
-            classicCountingSort(copy);
+            Improved_CountingSort.PartitionPlan partitionPlan = Improved_CountingSort.preprocess(copy);
+            Improved_CountingSort.countingSortPartitions(copy, partitionPlan);
             assertSorted(copy);
         }
 
@@ -353,11 +375,11 @@ class Improved_CountingSortTest {
             int[] copy = source.clone();
 
             long preprocessStart = System.nanoTime();
-            paperPreprocessOnly(copy);
+            Improved_CountingSort.PartitionPlan partitionPlan = Improved_CountingSort.preprocess(copy);
             long preprocessEnd = System.nanoTime();
 
             long countingStart = System.nanoTime();
-            classicCountingSort(copy);
+            Improved_CountingSort.countingSortPartitions(copy, partitionPlan);
             long countingEnd = System.nanoTime();
 
             preprocessNanos += preprocessEnd - preprocessStart;
@@ -369,30 +391,6 @@ class Improved_CountingSortTest {
                 preprocessNanos / 1_000_000.0 / measuredRuns,
                 countingNanos / 1_000_000.0 / measuredRuns
         );
-    }
-
-    private static void paperPreprocessOnly(int[] input) {
-        if (input.length < 2) {
-            return;
-        }
-
-        quicksortModifiedForPaper(input, 0, input.length - 1, Improved_CountingSort.getMax(input), Improved_CountingSort.getMin(input));
-    }
-
-    private static void quicksortModifiedForPaper(int[] input, int low, int high, int maxValue, int minValue) {
-        if (low >= high) {
-            return;
-        }
-
-        if (maxValue - minValue + high - low <= PAPER_THRESHOLD_C) {
-            return;
-        }
-
-        int pivot = Improved_CountingSort.partitionMedianOfThree(input, low, high);
-        int midValue = input[pivot];
-
-        quicksortModifiedForPaper(input, low, pivot - 1, midValue, minValue);
-        quicksortModifiedForPaper(input, pivot + 1, high, maxValue, midValue);
     }
 
     private static void classicQuickSort(int[] input) {

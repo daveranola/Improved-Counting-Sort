@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.List;
+
 public class Improved_CountingSort {
     private static final int C = 1000;
 
@@ -6,24 +9,44 @@ public class Improved_CountingSort {
             return;
         }
 
-        quicksort_modified(arr, 0, arr.length - 1, getMax(arr), getMin(arr));
-        countingsort(arr, arr.length);
+        PartitionPlan partitionPlan = preprocess(arr);
+        countingSortPartitions(arr, partitionPlan);
     }
 
-    private static void quicksort_modified(int[] arr, int low, int high,
-                            int maxValue, int minValue) {
-        if (low >= high) return;
+    static PartitionPlan preprocess(int[] arr) {
+        if (arr.length < 2) {
+            return new PartitionPlan(new Partition[0]);
+        }
+
+        List<Partition> partitions = new ArrayList<>();
+        quicksortModified(arr, 0, arr.length - 1, getMax(arr), getMin(arr), partitions);
+        return new PartitionPlan(partitions.toArray(new Partition[0]));
+    }
+
+    static void countingSortPartitions(int[] arr, PartitionPlan partitionPlan) {
+        for (Partition partition : partitionPlan.partitions) {
+            countingSortPartition(arr, partition.low, partition.high, partition.minValue, partition.maxValue);
+        }
+    }
+
+    private static void quicksortModified(int[] arr, int low, int high,
+                                          int maxValue, int minValue, List<Partition> partitions) {
+        if (low > high) {
+            return;
+        }
 
         int size = high - low + 1;
 
-        if (maxValue - minValue + size - 1 <= C) return;
+        if (size < 2 || maxValue - minValue + size - 1 <= C) {
+            partitions.add(new Partition(low, high, minValue, maxValue));
+            return;
+        }
 
         int pivot = partitionMedianOfThree(arr, low, high);
-        int mid = arr[pivot];
+        int midValue = arr[pivot];
 
-        quicksort_modified(arr, low, pivot - 1, mid, minValue);
-        quicksort_modified(arr, pivot + 1, high, maxValue, mid);
-
+        quicksortModified(arr, low, pivot - 1, midValue, minValue, partitions);
+        quicksortModified(arr, pivot + 1, high, maxValue, midValue, partitions);
     }
 
     public static int partitionMedianOfThree(int[] arr, int low, int high) {
@@ -82,28 +105,55 @@ public class Improved_CountingSort {
         return min;
     }
 
-    private static void countingsort(int[] arr, int n) {
-        int[] output = new int[n];
-        int r = getMax(arr);
-        int[] count = new int[r + 1];
-
-        for (int i = 0; i <= r; i++) {
-            count[i] = 0;
+    private static void countingSortPartition(int[] arr, int low, int high, int minValue, int maxValue) {
+        if (low >= high) {
+            return;
         }
 
-        for (int i = 0; i < n; i++) {
-            count[arr[i]]++;
+        int size = high - low + 1;
+        int[] output = new int[size];
+        int[] count = new int[maxValue - minValue + 1];
+
+        for (int i = low; i <= high; i++) {
+            count[arr[i] - minValue]++;
         }
 
-        for (int i = 1; i <= r; i++) {
+        for (int i = 1; i < count.length; i++) {
             count[i] += count[i - 1];
         }
 
-        for (int i = n - 1; i >= 0; i--) {
-            output[count[arr[i]] - 1] = arr[i];
-            count[arr[i]] -= 1;
+        for (int i = high; i >= low; i--) {
+            int normalizedValue = arr[i] - minValue;
+            output[count[normalizedValue] - 1] = arr[i];
+            count[normalizedValue]--;
         }
 
-        System.arraycopy(output, 0, arr, 0, n);
+        System.arraycopy(output, 0, arr, low, size);
+    }
+
+    static final class PartitionPlan {
+        private final Partition[] partitions;
+
+        private PartitionPlan(Partition[] partitions) {
+            this.partitions = partitions;
+        }
+
+        int partitionCount() {
+            return partitions.length;
+        }
+    }
+
+    static final class Partition {
+        private final int low;
+        private final int high;
+        private final int minValue;
+        private final int maxValue;
+
+        private Partition(int low, int high, int minValue, int maxValue) {
+            this.low = low;
+            this.high = high;
+            this.minValue = minValue;
+            this.maxValue = maxValue;
+        }
     }
 }
