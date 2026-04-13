@@ -72,7 +72,7 @@ class Improved_CountingSortTest {
         @DisplayName("Table 1 benchmark")
         @Test
         void table1Benchmark() {
-            int[] sizes = new int[] {1_000_000, 2_000_000, 3_000_000};
+            int[] sizes = new int[] {1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 10_000_000, 15_000_000, 20_000_000, 25_000_000};
 
             printTableHeader("Table 1: Performance comparison in ms over random and sorted inputs");
             System.out.printf("%12s %12s %16s %16s%n", "n", "r", "random (T1)", "sorted (T2)");
@@ -108,7 +108,7 @@ class Improved_CountingSortTest {
         @DisplayName("Table 2 benchmark")
         @Test
         void table2Benchmark() {
-            int[] sizes = new int[] {1_000, 2_000, 3_000};
+            int[] sizes = new int[] {1_000, 2_000, 3_000, 4_000, 5_000, 10_000, 20_000, 30_000, 40_000, 50_000};
             int range = 1_000_000;
 
             printTableHeader("Table 2: Running times in ms for counting sort with and without preprocessing");
@@ -159,7 +159,7 @@ class Improved_CountingSortTest {
         @DisplayName("Table 3 benchmark")
         @Test
         void table3Benchmark() {
-            int[] sizes = new int[] {1_000_000, 2_000_000};
+            int[] sizes = new int[] {1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 10_000_000, 15_000_000, 20_000_000, 25_000_000};
 
             printTableHeader("Table 3: Running times in ms for quicksort, quicksort with insertion sort, and quicksort with counting sort");
             System.out.printf("%14s %16s %24s %24s%n",
