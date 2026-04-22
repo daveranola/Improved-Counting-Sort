@@ -44,9 +44,3 @@ These notes summarize the current state of the repository against Paper 2 and th
 - The paper does not fully specify every benchmarking detail, such as JVM effects, OS scheduling controls, or whether CPU affinity and frequency scaling were constrained.
 - This repository is implemented in Java and measured under a modern JIT-managed runtime, while the paper presents low-level cache arguments that are sensitive to the exact execution environment.
 - Repeated threshold sweeps on this machine show normal benchmark noise, so the safest submission choice is to keep the default close to the paper's published `C`.
-
-## Submission Status
-
-- The repository now includes a README with build, test, benchmark, and tuning instructions.
-- The code passes the accuracy tests and the benchmark suite runs successfully.
-- The formal report is still a separate deliverable and still needs to be submitted.

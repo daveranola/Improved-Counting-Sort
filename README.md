@@ -61,9 +61,3 @@ java -cp target/classes Improved_CountingSortThresholdSweep extended
 ```
 
 The current default is `C = 1000`. Paper-focused sweeps on this repository's Ryzen 9 7845HX / JDK 17 setup kept the best region close to the paper's original value (`768-1000`), so the source stays aligned with the paper while the sweep tool lets you retune for other workload profiles.
-
-## Notes For Submission
-
-- The project description requires a `README` with reproduction steps; this file covers that requirement.
-- The 3-page report is a separate deliverable and is not currently included in this repository.
-- Benchmark timings are hardware- and JVM-dependent, so absolute values will differ from the paper even when the trends match.
