@@ -2,25 +2,38 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Improved_CountingSort {
-    private static final int C = 1000;
+    // Paper 2 treats C as a machine-dependent limit for when a partition is small enough
+    // for localized counting sort to be worthwhile without further quicksort splitting.
+    private static final int DEFAULT_THRESHOLD = 1000;
 
     public static void sort(int[] arr) {
+        sort(arr, DEFAULT_THRESHOLD);
+    }
+
+    public static void sort(int[] arr, int threshold) {
         if (arr.length < 2) {
             return;
         }
 
-        PartitionPlan partitionPlan = preprocess(arr);
+        // First use modified quicksort to carve the array into threshold-bounded partitions,
+        // then run counting sort independently inside each partition.
+        PartitionPlan partitionPlan = preprocess(arr, threshold);
         countingSortPartitions(arr, partitionPlan);
     }
 
     static PartitionPlan preprocess(int[] arr) {
+        return preprocess(arr, DEFAULT_THRESHOLD);
+    }
+
+    static PartitionPlan preprocess(int[] arr, int threshold) {
         if (arr.length < 2) {
-            return new PartitionPlan(new Partition[0]);
+            return new PartitionPlan(threshold, new Partition[0]);
         }
 
+        validateThreshold(threshold);
         List<Partition> partitions = new ArrayList<>();
-        quicksortModified(arr, 0, arr.length - 1, getMax(arr), getMin(arr), partitions);
-        return new PartitionPlan(partitions.toArray(new Partition[0]));
+        quicksortModified(arr, 0, arr.length - 1, getMax(arr), getMin(arr), threshold, partitions);
+        return new PartitionPlan(threshold, partitions.toArray(new Partition[0]));
     }
 
     static void countingSortPartitions(int[] arr, PartitionPlan partitionPlan) {
@@ -29,15 +42,21 @@ public class Improved_CountingSort {
         }
     }
 
+    static int defaultThreshold() {
+        return DEFAULT_THRESHOLD;
+    }
+
     private static void quicksortModified(int[] arr, int low, int high,
-                                          int maxValue, int minValue, List<Partition> partitions) {
+                                          int maxValue, int minValue, int threshold, List<Partition> partitions) {
         if (low > high) {
             return;
         }
 
         int size = high - low + 1;
 
-        if (size < 2 || maxValue - minValue + size - 1 <= C) {
+        // This is the paper's stopping rule: stop recursing once
+        // (partition value range + partition size - 1) <= C.
+        if (size < 2 || maxValue - minValue + size - 1 <= threshold) {
             partitions.add(new Partition(low, high, minValue, maxValue));
             return;
         }
@@ -45,8 +64,8 @@ public class Improved_CountingSort {
         int pivot = partitionMedianOfThree(arr, low, high);
         int midValue = arr[pivot];
 
-        quicksortModified(arr, low, pivot - 1, midValue, minValue, partitions);
-        quicksortModified(arr, pivot + 1, high, maxValue, midValue, partitions);
+        quicksortModified(arr, low, pivot - 1, midValue, minValue, threshold, partitions);
+        quicksortModified(arr, pivot + 1, high, maxValue, midValue, threshold, partitions);
     }
 
     public static int partitionMedianOfThree(int[] arr, int low, int high) {
@@ -131,15 +150,31 @@ public class Improved_CountingSort {
         System.arraycopy(output, 0, arr, low, size);
     }
 
+    private static void validateThreshold(int threshold) {
+        if (threshold < 2) {
+            throw new IllegalArgumentException("Threshold C must be at least 2.");
+        }
+    }
+
     static final class PartitionPlan {
+        private final int threshold;
         private final Partition[] partitions;
 
-        private PartitionPlan(Partition[] partitions) {
+        private PartitionPlan(int threshold, Partition[] partitions) {
+            this.threshold = threshold;
             this.partitions = partitions;
         }
 
         int partitionCount() {
             return partitions.length;
+        }
+
+        int threshold() {
+            return threshold;
+        }
+
+        Partition partitionAt(int index) {
+            return partitions[index];
         }
     }
 
@@ -154,6 +189,35 @@ public class Improved_CountingSort {
             this.high = high;
             this.minValue = minValue;
             this.maxValue = maxValue;
+        }
+
+        int low() {
+            return low;
+        }
+
+        int high() {
+            return high;
+        }
+
+        int minValue() {
+            return minValue;
+        }
+
+        int maxValue() {
+            return maxValue;
+        }
+
+        int size() {
+            return high - low + 1;
+        }
+
+        int rangeWidth() {
+            return maxValue - minValue;
+        }
+
+        int rangePlusSize() {
+            // Helper for the paper's threshold check: (max - min) + partition length.
+            return rangeWidth() + size();
         }
     }
 }

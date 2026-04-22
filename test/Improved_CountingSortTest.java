@@ -68,6 +68,45 @@ class Improved_CountingSortTest {
         void table3Cases(String caseName, int[] input) {
             assertMatchesJavaSort(caseName, input);
         }
+
+        @DisplayName("Preprocessing respects the threshold invariant from the paper")
+        @Test
+        void preprocessingRespectsThresholdInvariant() {
+            int threshold = 128;
+            int[] input = randomNonNegativeArray(5_000, 4_999, BASE_SEED + 30);
+            Improved_CountingSort.PartitionPlan partitionPlan = Improved_CountingSort.preprocess(input, threshold);
+
+            for (int i = 0; i < partitionPlan.partitionCount(); i++) {
+                Improved_CountingSort.Partition partition = partitionPlan.partitionAt(i);
+
+                assertAll(
+                        "partition " + i,
+                        () -> assertTrue(partition.rangePlusSize() <= threshold, "Partition exceeds threshold"),
+                        () -> assertTrue(partition.low() <= partition.high(), "Partition must be non-empty")
+                );
+
+                if (i > 0) {
+                    Improved_CountingSort.Partition previous = partitionPlan.partitionAt(i - 1);
+                    assertTrue(previous.high() < partition.low(), "Partitions must stay disjoint and ordered by index");
+                    assertTrue(previous.maxValue() <= partition.minValue(), "Partitions are not ordered by value");
+                }
+            }
+
+            assertTrue(partitionPlan.threshold() == threshold);
+        }
+
+        @DisplayName("Threshold overload matches Java sort")
+        @Test
+        void thresholdOverloadMatchesJavaSort() {
+            int[] input = randomNonNegativeArray(10_000, 9_999, BASE_SEED + 31);
+            int[] expected = input.clone();
+            int[] actual = input.clone();
+
+            Arrays.sort(expected);
+            Improved_CountingSort.sort(actual, 256);
+
+            assertArrayEquals(expected, actual);
+        }
     }
 
     @Nested
