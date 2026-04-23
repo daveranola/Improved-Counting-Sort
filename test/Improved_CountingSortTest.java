@@ -12,7 +12,9 @@ import java.util.Arrays;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisplayName("Improved Counting Sort")
@@ -75,24 +77,33 @@ class Improved_CountingSortTest {
             int threshold = 128;
             int[] input = randomNonNegativeArray(5_000, 4_999, BASE_SEED + 30);
             Improved_CountingSort.PartitionPlan partitionPlan = Improved_CountingSort.preprocess(input, threshold);
+            int coveredSize = 0;
+            int nextExpectedLow = 0;
 
             for (int i = 0; i < partitionPlan.partitionCount(); i++) {
                 Improved_CountingSort.Partition partition = partitionPlan.partitionAt(i);
+                coveredSize += partition.size();
+                int expectedLow = nextExpectedLow;
 
                 assertAll(
                         "partition " + i,
                         () -> assertTrue(partition.rangePlusSize() <= threshold, "Partition exceeds threshold"),
-                        () -> assertTrue(partition.low() <= partition.high(), "Partition must be non-empty")
+                        () -> assertTrue(partition.low() <= partition.high(), "Partition must be non-empty"),
+                        () -> assertEquals(expectedLow, partition.low(), "Partitions must cover the array contiguously")
                 );
 
                 if (i > 0) {
                     Improved_CountingSort.Partition previous = partitionPlan.partitionAt(i - 1);
-                    assertTrue(previous.high() < partition.low(), "Partitions must stay disjoint and ordered by index");
+                    assertEquals(previous.high() + 1, partition.low(), "Partitions must stay contiguous by index");
                     assertTrue(previous.maxValue() <= partition.minValue(), "Partitions are not ordered by value");
                 }
+
+                nextExpectedLow = partition.high() + 1;
             }
 
-            assertTrue(partitionPlan.threshold() == threshold);
+            assertEquals(threshold, partitionPlan.threshold());
+            assertEquals(input.length, coveredSize, "Partitions must cover every index exactly once");
+            assertEquals(input.length, nextExpectedLow, "Final partition should end at the last index");
         }
 
         @DisplayName("Threshold overload matches Java sort")
@@ -106,6 +117,28 @@ class Improved_CountingSortTest {
             Improved_CountingSort.sort(actual, 256);
 
             assertArrayEquals(expected, actual);
+        }
+
+        @DisplayName("Threshold of one is supported")
+        @Test
+        void thresholdOneMatchesJavaSort() {
+            int[] input = new int[] {7, 3, 7, -2, 1, 0, -2, 5};
+            int[] expected = input.clone();
+            int[] actual = input.clone();
+
+            Arrays.sort(expected);
+            Improved_CountingSort.sort(actual, 1);
+
+            assertArrayEquals(expected, actual);
+        }
+
+        @DisplayName("Invalid thresholds are rejected")
+        @Test
+        void invalidThresholdIsRejected() {
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> Improved_CountingSort.sort(new int[] {1, 0}, 0)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> Improved_CountingSort.preprocess(new int[] {1, 0}, 0))
+            );
         }
     }
 
@@ -276,6 +309,11 @@ class Improved_CountingSortTest {
                         "duplicate-heavy values",
                         new int[] {4, 2, 2, 4, 1, 3, 3, 0},
                         new int[] {0, 1, 2, 2, 3, 3, 4, 4}
+                ),
+                Arguments.of(
+                        "negative values",
+                        new int[] {3, -1, 0, -1, 2},
+                        new int[] {-1, -1, 0, 2, 3}
                 )
         };
     }

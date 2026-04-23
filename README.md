@@ -23,13 +23,13 @@ mvn clean compile
 Run correctness tests only:
 
 ```powershell
-mvn "-Dtest=Improved_CountingSortTest\$AccuracyTests" test
+mvn '-Dtest=Improved_CountingSortTest$AccuracyTests' test
 ```
 
 Run the benchmark tables used for replication:
 
 ```powershell
-mvn "-Dtest=Improved_CountingSortTest\$ResultsReplicationTests" test
+mvn '-Dtest=Improved_CountingSortTest$ResultsReplicationTests' test
 ```
 
 Run the full suite:
@@ -37,6 +37,8 @@ Run the full suite:
 ```powershell
 mvn test
 ```
+
+`mvn test` includes the benchmark-style replication runs for Tables 1-3, so it takes noticeably longer than the accuracy-only command.
 
 ## Tuning The Threshold `C`
 
@@ -60,4 +62,4 @@ java -cp target/classes Improved_CountingSortThresholdSweep paper
 java -cp target/classes Improved_CountingSortThresholdSweep extended
 ```
 
-The current default is `C = 1000`. Paper-focused sweeps on this repository's Ryzen 9 7845HX / JDK 17 setup kept the best region close to the paper's original value (`768-1000`), so the source stays aligned with the paper while the sweep tool lets you retune for other workload profiles.
+The current default is `C = 1000`, which matches the paper's published experiments. Because `C` is machine-dependent, use the sweep tool on the machine where you plan to benchmark or present results if you want to retune it for a different workload mix.
