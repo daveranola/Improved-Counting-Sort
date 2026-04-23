@@ -4,6 +4,7 @@ import java.util.List;
 public class Improved_CountingSort {
     // Paper 2 treats C as a machine-dependent limit for when a partition is small enough
     // for localized counting sort to be worthwhile without further quicksort splitting.
+    // The paper's experiments used C = 1000, so that stays as the repository default.
     private static final int DEFAULT_THRESHOLD = 1000;
 
     public static void sort(int[] arr) {
@@ -11,6 +12,7 @@ public class Improved_CountingSort {
     }
 
     public static void sort(int[] arr, int threshold) {
+        // Validate once at the public entry point so invalid C values fail fast before any work.
         validateThreshold(threshold);
         if (arr.length < 2) {
             return;
@@ -32,6 +34,8 @@ public class Improved_CountingSort {
             return new PartitionPlan(threshold, new Partition[0]);
         }
 
+        // Keep the partition model uniform for later stages: even a single value is represented
+        // as one partition with fully known index and value bounds.
         if (arr.length == 1) {
             return new PartitionPlan(threshold, new Partition[] {
                     new Partition(0, 0, arr[0], arr[0])
@@ -39,6 +43,8 @@ public class Improved_CountingSort {
         }
 
         List<Partition> partitions = new ArrayList<>();
+        // The initial bounds cover the whole input. Recursive calls narrow these bounds as the
+        // modified quicksort discovers smaller value ranges for each partition.
         quicksortModified(arr, 0, arr.length - 1, getMax(arr), getMin(arr), threshold, partitions);
         return new PartitionPlan(threshold, partitions.toArray(new Partition[0]));
     }
@@ -117,6 +123,8 @@ public class Improved_CountingSort {
     private static PartitionSplit partitionMedianOfThreeWithBounds(int[] arr, int low, int high) {
         int mid = (low + high) / 2;
 
+        // Reuse the same median-of-three ordering as the public quicksort helper so benchmark
+        // comparisons stay consistent across the repository.
         if (arr[low] > arr[mid]) {
             swap(arr, low, mid);
         }
@@ -140,11 +148,15 @@ public class Improved_CountingSort {
         for (int j = low; j < high; j++) {
             if (arr[j] < pivot) {
                 hasLeftPartition = true;
+                // Track the actual maximum seen on the left so recursive calls receive tighter
+                // bounds than the pivot value when duplicates are present.
                 leftMaxValue = Math.max(leftMaxValue, arr[j]);
                 swap(arr, i, j);
                 i++;
             } else {
                 hasRightPartition = true;
+                // Values equal to the pivot stay on the right side in this partition scheme, so
+                // the next recursive call needs the true minimum from that side rather than pivot.
                 rightMinValue = Math.min(rightMinValue, arr[j]);
             }
         }
@@ -184,6 +196,8 @@ public class Improved_CountingSort {
 
         int size = high - low + 1;
         int[] output = new int[size];
+        // Each partition is sorted relative to its own minimum value, which keeps the count array
+        // as small as the paper's range bound allows.
         int[] count = new int[maxValue - minValue + 1];
 
         for (int i = low; i <= high; i++) {
@@ -195,6 +209,7 @@ public class Improved_CountingSort {
         }
 
         for (int i = high; i >= low; i--) {
+            // Normalize values into the local [0, range] bucket space for this partition.
             int normalizedValue = arr[i] - minValue;
             output[count[normalizedValue] - 1] = arr[i];
             count[normalizedValue]--;
@@ -205,6 +220,7 @@ public class Improved_CountingSort {
 
     private static void validateThreshold(int threshold) {
         if (threshold < 1) {
+            // The paper only requires C > 0; smaller values make the partition rule meaningless.
             throw new IllegalArgumentException("Threshold C must be at least 1.");
         }
     }

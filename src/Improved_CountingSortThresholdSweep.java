@@ -5,9 +5,12 @@ public class Improved_CountingSortThresholdSweep {
     private static final long BASE_SEED = 20260422L;
     private static final int WARMUP_RUNS = 1;
     private static final int MEASURED_RUNS = 3;
-    // Candidate C values to try. Keeping the list explicit makes the sweep easy to adjust.
+    // Candidate C values to try. These are the machine-dependent threshold settings for the
+    // hybrid algorithm: smaller values force more partitioning, larger values allow wider
+    // partitions before counting sort takes over.
     private static final int[] THRESHOLDS = new int[] {512, 768, 1000, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384};
-    // Cases closest to the paper's published experiments.
+    // Cases closest to the paper's published experiments. This profile is the right one when
+    // choosing a submission default that stays close to the paper's workload mix.
     private static final SweepCase[] PAPER_CASES = new SweepCase[] {
             new SweepCase("table2 n=1k r=1M", randomNonNegativeArray(1_000, 999_999, BASE_SEED + 1)),
             new SweepCase("table2 n=2k r=1M", randomNonNegativeArray(2_000, 999_999, BASE_SEED + 2)),
@@ -15,7 +18,8 @@ public class Improved_CountingSortThresholdSweep {
             new SweepCase("table3 n=r=1M", randomNonNegativeArray(1_000_000, 999_999, BASE_SEED + 4)),
             new SweepCase("table3 n=r=2M", randomNonNegativeArray(2_000_000, 1_999_999, BASE_SEED + 5))
     };
-    // Larger in-repo cases if you want to bias the threshold toward bigger workloads.
+    // Larger in-repo cases if you want to bias the threshold toward bigger workloads on the
+    // current machine instead of the paper's original emphasis.
     private static final SweepCase[] EXTENDED_CASES = new SweepCase[] {
             new SweepCase("table2 n=50k r=1M", randomNonNegativeArray(50_000, 999_999, BASE_SEED + 1)),
             new SweepCase("table3 n=r=1M", randomNonNegativeArray(1_000_000, 999_999, BASE_SEED + 2)),
@@ -42,8 +46,8 @@ public class Improved_CountingSortThresholdSweep {
         int bestThreshold = THRESHOLDS[0];
         double bestTotalMillis = Double.MAX_VALUE;
 
-        // The simplest ranking rule: sum the runtimes across the chosen cases and keep
-        // the threshold with the smallest overall total.
+        // Rank each threshold by adding its runtime across the selected cases. The smallest
+        // total is reported as the recommended C for this machine/profile combination.
         for (int threshold : THRESHOLDS) {
             double totalMillis = printThresholdRow(threshold, cases);
             if (totalMillis < bestTotalMillis) {
@@ -86,7 +90,7 @@ public class Improved_CountingSortThresholdSweep {
             samples[i] = (end - start) / 1_000_000.0;
         }
 
-        // Use the median measured run so one noisy sample does not dominate the result.
+        // Use the median measured run so one noisy sample does not dominate the threshold choice.
         Arrays.sort(samples);
         return samples[samples.length / 2];
     }
