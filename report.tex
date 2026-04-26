@@ -1,0 +1,368 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{tabularx}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    urlcolor=blue!50!black
+}
+
+\captionsetup{
+    font=small,
+    labelfont=bf
+}
+\captionsetup[table]{labelformat=empty,labelsep=none}
+
+\setlist{nosep,leftmargin=1.6em}
+\setlength{\parskip}{0.4em}
+\setlength{\parindent}{0pt}
+\setlength{\headheight}{14pt}
+\renewcommand{\arraystretch}{1.15}
+\raggedbottom
+
+\titleformat{\section}
+{\large\bfseries}
+{\thesection}
+{0.6em}
+{}
+
+\titleformat{\subsection}
+{\normalsize\bfseries}
+{\thesubsection}
+{0.6em}
+{}
+
+\titlespacing*{\section}{0pt}{0.9em}{0.4em}
+\titlespacing*{\subsection}{0pt}{0.7em}{0.3em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{}
+\rhead{}
+\renewcommand{\headrulewidth}{0pt}
+
+\title{
+    \vspace{-1.2em}
+    \textbf{Improving Counting Sort via Data Locality}\\
+    \large Cache-aware Hybrid Sorting with Modified Quicksort Preprocessing
+}
+\author{Group 13}
+\date{}
+
+\begin{document}
+
+    \maketitle
+    \thispagestyle{empty}
+
+    \section{Introduction}
+
+    This project implements and evaluates the approach from Paper 2, which aims to make counting
+    sort faster by improving data locality. The main point is that asymptotic complexity does not
+    tell the whole story: in practice, counting sort can be much slower on random input than on
+    sorted input even though both cases still have the same $O(n + r)$ bound.
+
+    The paper explains this gap in terms of memory access. Counting sort repeatedly updates
+    \texttt{count[value]}; when the values are scattered, those updates jump around memory and
+    trigger more cache misses. When nearby elements tend to hit nearby counters, the same work
+    stays within a smaller region of memory and becomes cheaper.
+
+    We test that idea on our own hardware using a Java implementation of the hybrid pipeline, then
+    compare our results with the paper's three benchmark families.
+
+
+    \section{Cache-Aware Hybrid Counting Sort (Proposed Method)}
+
+    Instead of running one global counting-sort pass, Paper 2 uses a two-stage method:
+
+    \begin{enumerate}
+        \item \textbf{Preprocess with modified quicksort.} Partition using median-of-three pivots.
+        \item \textbf{Early stop using threshold rule.} Stop recursion when
+        \[
+            (\max - \min) + \text{size} \leq C.
+        \]
+        \item \textbf{Partition-local counting sort.} Run counting sort separately in each accepted partition.
+    \end{enumerate}
+
+    The idea is to spend some time reorganizing the data up front, then earn that time back
+    through smaller and more cache-friendly counting passes.
+
+    \subsection{What This Changes Relative to Baselines}
+
+    Compared with classic counting sort, the hybrid replaces one large range-dependent count array
+    with several smaller local arrays. Compared with full quicksort, it stops the partitioning
+    early and switches to counting sort once partitions become value-tight. Whether this helps
+    depends on the workload: it is strongest under high cache pressure and less effective when the
+    preprocessing cost dominates.
+
+    \subsection{Complexity Perspective}
+
+    The algorithm keeps the average-case $O(n\log n)$ partitioning behavior of quicksort and
+    still carries the usual quicksort-style worst-case risk under very unbalanced splits. Its
+    advantage is practical rather than asymptotic: the local counting passes have better memory
+    locality.
+
+    \section{Implementation Details}
+
+    The main implementation is in \texttt{src/Improved\_CountingSort.java}. The standalone benchmark
+    driver is in \texttt{test/Improved\_CountingSortTest.java}, and threshold-sweep support is in \\
+    \texttt{src/Improved\_CountingSortThresholdSweep.java}.
+
+    \subsection{Paper-to-Code Mapping}
+
+    \begin{table}[H]
+        \centering
+        \caption{Mapping from paper concepts to implementation units.}
+        \label{tab:mapping}
+        \small
+        \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}X}
+            \toprule
+            Paper concept & Implementation mapping \\
+            \midrule
+            Hybrid entry point & \texttt{sort(arr)} and \texttt{sort(arr, threshold)} \\
+            Preprocessing stage & \texttt{preprocess(...)} + \texttt{quicksortModified(...)} \\
+            Median-of-three pivot & \texttt{partitionMedianOfThreeWithBounds(...)} \\
+            Early-stop rule & condition \texttt{max - min + size <= threshold} \\
+            Partition descriptors & \texttt{PartitionPlan} and \texttt{Partition(low, high, minValue, maxValue)} \\
+            Local counting pass & \texttt{countingSortPartitions(...)} and \texttt{countingSortPartition(...)} \\
+            \bottomrule
+        \end{tabularx}
+        \normalsize
+    \end{table}
+
+    \subsection{Design Decisions}
+
+    \textbf{Default threshold.} We keep $C=1000$ as a paper-aligned baseline, but the reported
+    runs use a tuned value of $C=16384$ for our machine. We expose both a threshold overload and a
+    sweep utility because the best choice of $C$ depends on the hardware.
+
+    \textbf{Explicit partition metadata.} \texttt{PartitionPlan} makes the preprocessing stage
+    easier to inspect, test, and debug.
+
+    \textbf{Value normalization in local counting sort.} Each partition offsets values by
+    \texttt{minValue}, so the bucket array only spans the local value range. That keeps the local
+    counting pass compact and improves locality.
+
+    \textbf{Input validation.} Invalid thresholds are rejected early instead of failing deeper in
+    the pipeline.
+
+    \subsection{Correctness Checks}
+
+    Correctness checks are now lightweight and built into the repository's command-line
+    utilities. The main implementation rejects invalid thresholds at the public entry points, and
+    \texttt{Improved\_CountingSortThresholdSweep.java} calls an internal
+    \texttt{assertSorted(...)} check after each warm-up and measured run. In other words, the
+    current \texttt{test/Improved\_CountingSortTest.java} file is a replication benchmark driver,
+    not an assertion-based unit-test suite.
+
+    \section{Experiments}
+
+    All reported results come from benchmark methods in
+    \texttt{test/Improved\_CountingSortTest.java} and were recorded in
+    \texttt{your\_benchmark\_output.txt}.
+
+    \subsection{Protocol}
+
+    For each case, we use 3 warm-up runs and 10 measured runs, time them with
+    \texttt{System.nanoTime()}, and report the average in milliseconds. Arrays are generated with
+    fixed seeds to keep the runs repeatable.
+
+    \subsection{Workloads}
+
+    \textbf{Table 1 style (input-order sensitivity).} We compare classic counting sort on random
+    and sorted data with $n=r$ over increasing input sizes.
+
+    \textbf{Table 2 style ($r \gg n$ stress test).} Hybrid versus classic counting sort with
+    $r=1{,}000{,}000$ and $n$ from 1000 to 50,000.
+    We also run a Table 2.2 variant with a larger range, $r=100{,}000{,}000$, to stress cache
+    capacity further.
+
+    \textbf{Table 3 style (quicksort variants).} We compare classic quicksort,
+    quicksort+insertion, and quicksort+counting for $n=r$ up to 25 million.
+
+    \subsection{Execution Environment}
+
+    We ran the experiments on an Intel Core i7-14650HX (16 cores) with Windows 11 and
+    Temurin JDK 17.0.18. The cache hierarchy is L1 1.4 MB, L2 24 MB, and L3 30 MB. As Paper 2
+    notes, cache structure and runtime details affect absolute timings, so our focus is on
+    reproducing the same overall trends.
+
+    \section{Results}
+
+    \subsection{Key Numeric Outcomes}
+
+    \begin{table}[H]
+        \centering
+        \caption{Representative results from the current repository run.}
+        \label{tab:key-results}
+        \small
+        \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{3.8cm} >{\raggedright\arraybackslash}X}
+            \toprule
+            Benchmark & Case & Observation \\
+            \midrule
+            Table 1 & $n=r=25$M & Random: 659.512 ms; Sorted: 105.319 ms ($\sim$6.26$\times$ gap). \\
+            Table 2.1 & $r=1{,}000{,}000$ & Hybrid wins at $n=1000$ (0.210 vs 0.652 ms), then classic leads from $n=2000$ onward. \\
+            Table 2.2 & $r=100{,}000{,}000$ & Hybrid remains faster across tested $n$ (e.g., at $n=500{,}000$: 82.076 ms vs classic 89.531 ms). \\
+            Table 3 & $n=r=10$M & quicksort: 749.368 ms; quick+insertion: 656.226 ms; quick+counting: 473.387 ms ($\sim$1.58$\times$ vs quicksort). \\
+            \bottomrule
+        \end{tabularx}
+        \normalsize
+    \end{table}
+
+    \subsection{Benchmark Trend Visuals}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\textwidth]{graphs/table1_random_vs_sorted_ms.png}
+        \caption{Table 1 trend: sorted input stays much faster than random input.}
+        \label{fig:table1trend}
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\textwidth]{graphs/table2_1_preprocess_counting_vs_classic_ms.png}
+        \caption{Table 2.1 trend ($r=1{,}000{,}000$): in this $r \gg n$ setting, preprocessing
+        overhead dominates most of the small-$n$ cases.}
+        \label{fig:table2trend}
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\textwidth]{graphs/table2_2_preprocess_counting_vs_classic_ms.png}
+        \caption{Table 2.2 trend ($r=100{,}000{,}000$): once classic counting sort becomes
+        cache-limited, the hybrid pulls ahead.}
+        \label{fig:table22trend}
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\textwidth]{graphs/table3_quicksort_variants_ms.png}
+        \caption{Table 3 trend: quicksort + counting sort is the fastest option across the tested
+        scales.}
+        \label{fig:table3trend}
+    \end{figure}
+
+    Overall, the results line up with Paper 2. Data locality clearly matters, quick+counting is
+    strong when $n=r$ is large, and the Table 2.1/2.2 comparison shows that increasing cache
+    pressure can change which method comes out ahead.
+
+    \section{Discussion}
+
+    \subsection{Replication Quality}
+
+    \textbf{Table 1.} We reproduced this result strongly: the random-vs-sorted gap is clear and
+    grows with input size.
+
+    \begin{table}[H]
+        \centering
+        \caption{Table 1 replication points aligned with Paper 2-provided sizes (times in ms).}
+        \label{tab:table1-paper-points}
+        \small
+        \begin{tabular}{rrrr}
+            \toprule
+            $n$ & $r$ & T1 & T2 \\
+            \midrule
+            1{,}000{,}000 & 1{,}000{,}000 & 8.05 & 6.44 \\
+            2{,}000{,}000 & 2{,}000{,}000 & 25.44 & 12.90 \\
+            3{,}000{,}000 & 3{,}000{,}000 & 37.24 & 19.96 \\
+            \bottomrule
+        \end{tabular}
+        \normalsize
+    \end{table}
+
+    \textbf{Table 2.1.} We reproduced this result only partially. The hybrid wins at small $n$,
+    but classic counting sort becomes faster afterward, which fits the idea that preprocessing
+    overhead matters more on our relatively cache-rich system.
+
+    \begin{table}[H]
+        \centering
+        \caption{Table 2.1 replication points for Paper 2-style rows ($T1$ = improved total, $T2$ = classic; times in ms).}
+        \label{tab:table22-paper-points}
+        \small
+        \begin{tabular}{rrrr}
+            \toprule
+            $n$ & $r$ & T1 & T2 \\
+            \midrule
+            1{,}000 & 1{,}000{,}000 & 1.377 & 1.717 \\
+            2{,}000 & 1{,}000{,}000 & 1.026 & 1.101 \\
+            3{,}000 & 1{,}000{,}000 & 1.077 & 0.754 \\
+            \bottomrule
+        \end{tabular}
+        \normalsize
+    \end{table}
+
+    \textbf{Table 2.2.} With $r=100{,}000{,}000$, the hybrid is faster across the tested values of
+    $n$ because classic counting sort becomes cache-limited.
+    \begin{table}[H]
+        \centering
+        \caption{Table 2.2 replication points for Paper 2-style rows ($T1$ = improved total, $T2$ = classic; times in ms).}
+        \label{tab:table21-paper-points}
+        \small
+        \begin{tabular}{rrrr}
+            \toprule
+            $n$ & $r$ & T1 & T2 \\
+            \midrule
+            1{,}000 & 100{,}000{,}000 & 1.300 & 86.075 \\
+            2{,}000 & 100{,}000{,}000 & 0.828 & 80.146 \\
+            3{,}000 & 100{,}000{,}000 & 1.454 & 80.376 \\
+            \bottomrule
+        \end{tabular}
+        \normalsize
+    \end{table}
+
+    \textbf{Table 3.} We reproduced this result strongly as well: quick+counting outperforms both
+    quicksort baselines.
+
+    \begin{table}[H]
+        \centering
+        \caption{Table 3 replication points for Paper 2-style rows (times in ms).}
+        \label{tab:table3-paper-points}
+        \small
+        \begin{tabular}{rrrr}
+            \toprule
+            $n=r$ & T1 & T2 & T3 \\
+            \midrule
+            1{,}000{,}000 & 63.718 & 57.562 & 26.964 \\
+            2{,}000{,}000 & 132.881 & 117.656 & 59.648 \\
+            \bottomrule
+        \end{tabular}
+        \normalsize
+    \end{table}
+
+    \subsection{Why Absolute Numbers Differ}
+
+    Our absolute timings differ from the paper because the hardware, cache hierarchy, JVM behavior
+    (especially JIT and GC), and benchmark controls are all different. Those factors shift the
+    crossover points, especially between Table 2.1 and Table 2.2, without changing the main trend.
+
+    \subsection{Practical Takeaways}
+
+    The hybrid is clearly context-dependent. It performs well under high cache pressure, but it is
+    not a universal replacement for classic counting sort. The threshold $C$ should be tuned for
+    the target machine and workload.
+
+    \section{Conclusion}
+
+    We implemented and validated Paper 2's locality-aware hybrid method and reproduced its main
+    qualitative findings on our machine. Even though the asymptotic bounds stay the same, memory
+    behavior has a major effect on runtime: quick+counting is strongest at large $n=r$, while in
+    the $r \gg n$ setting the better method depends on how much cache pressure the count array
+    creates. A natural next step would be to tune $C$ more finely around the current best value
+    and report confidence intervals alongside the averages.
+
+\end{document}
